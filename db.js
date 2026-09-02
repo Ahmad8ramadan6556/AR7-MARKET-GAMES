@@ -1,4 +1,4 @@
-// db.js - إعداد قاعدة البيانات (SQLite) وإنشاء الجداول
+// db.js - قاعدة البيانات
 const Database = require('better-sqlite3');
 const path = require('path');
 
