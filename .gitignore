@@ -6,3 +6,4 @@ store.db-wal
 store.db-shm
 uploads/*
 !uploads/.gitkeep
+.DS_Store
