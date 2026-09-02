@@ -84,7 +84,7 @@ app.get('/api/auth/logout', (req, res) => {
   });
 });
 
-// Google OAuth
+// Google OAuth - فقط إذا كانت المفاتيح موجودة
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -107,9 +107,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.authenticate('google', { failureRedirect: '/' }),
     (req, res) => res.redirect('/')
   );
+} else {
+  // إذا لم توجد مفاتيح Google، أضف رسالة خطأ واضحة
+  app.get('/api/auth/google', (req, res) => {
+    res.status(501).send('Google OAuth غير مفعل - أضف GOOGLE_CLIENT_ID و GOOGLE_CLIENT_SECRET في المتغيرات');
+  });
 }
 
-// Facebook OAuth
+// Facebook OAuth - فقط إذا كانت المفاتيح موجودة
 if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
   passport.use(new FacebookStrategy({
     clientID: process.env.FACEBOOK_APP_ID,
@@ -133,6 +138,11 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     passport.authenticate('facebook', { failureRedirect: '/' }),
     (req, res) => res.redirect('/')
   );
+} else {
+  // إذا لم توجد مفاتيح Facebook، أضف رسالة خطأ واضحة
+  app.get('/api/auth/facebook', (req, res) => {
+    res.status(501).send('Facebook OAuth غير مفعل - أضف FACEBOOK_APP_ID و FACEBOOK_APP_SECRET في المتغيرات');
+  });
 }
 
 // ===== User APIs =====
@@ -279,4 +289,4 @@ app.post('/api/admin/orders/:id/cancel', isOwner, (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+}); 
