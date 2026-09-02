@@ -13,11 +13,13 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Session
 app.use(session({
   secret: process.env.SESSION_SECRET || 'change-this-secret',
   resave: false,
@@ -25,6 +27,7 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
+// Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -34,15 +37,14 @@ passport.deserializeUser((id, done) => {
   done(null, user);
 });
 
+// Multer config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
 const upload = multer({ storage });
 
-// ===== Routes API =====
-
-// Owner login
+// ===== OWNER LOGIN =====
 app.post('/api/auth/owner-login', (req, res) => {
   const { email, password } = req.body;
   const ownerEmail = process.env.OWNER_EMAIL;
@@ -70,13 +72,13 @@ app.post('/api/auth/owner-login', (req, res) => {
   });
 });
 
-// Get current user
+// ===== GET CURRENT USER =====
 app.get('/api/auth/me', (req, res) => {
   if (!req.user) return res.json({ user: null });
   res.json({ user: req.user });
 });
 
-// Logout
+// ===== LOGOUT =====
 app.get('/api/auth/logout', (req, res) => {
   req.logout((err) => {
     if (err) return res.status(500).json({ error: 'خطأ في تسجيل الخروج' });
@@ -84,7 +86,7 @@ app.get('/api/auth/logout', (req, res) => {
   });
 });
 
-// Google OAuth - فقط إذا كانت المفاتيح موجودة
+// ===== GOOGLE OAUTH =====
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -108,13 +110,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     (req, res) => res.redirect('/')
   );
 } else {
-  // إذا لم توجد مفاتيح Google، أضف رسالة خطأ واضحة
   app.get('/api/auth/google', (req, res) => {
-    res.status(501).send('Google OAuth غير مفعل - أضف GOOGLE_CLIENT_ID و GOOGLE_CLIENT_SECRET في المتغيرات');
+    res.status(501).json({ error: 'Google OAuth غير مفعل - أضف GOOGLE_CLIENT_ID و GOOGLE_CLIENT_SECRET' });
   });
 }
 
-// Facebook OAuth - فقط إذا كانت المفاتيح موجودة
+// ===== FACEBOOK OAUTH =====
 if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
   passport.use(new FacebookStrategy({
     clientID: process.env.FACEBOOK_APP_ID,
@@ -139,13 +140,12 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     (req, res) => res.redirect('/')
   );
 } else {
-  // إذا لم توجد مفاتيح Facebook، أضف رسالة خطأ واضحة
   app.get('/api/auth/facebook', (req, res) => {
-    res.status(501).send('Facebook OAuth غير مفعل - أضف FACEBOOK_APP_ID و FACEBOOK_APP_SECRET في المتغيرات');
+    res.status(501).json({ error: 'Facebook OAuth غير مفعل - أضف FACEBOOK_APP_ID و FACEBOOK_APP_SECRET' });
   });
 }
 
-// ===== User APIs =====
+// ===== USER APIs =====
 app.get('/api/profile', (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'غير مسجل الدخول' });
   const user = db.prepare('SELECT id, name, email, balance, created_at FROM users WHERE id = ?').get(req.user.id);
@@ -169,11 +169,11 @@ app.get('/api/custom-buttons', (req, res) => {
 
 app.get('/api/notifications', (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'غير مسجل الدخول' });
-  const notifs = db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC').all(req.user.id);
+  const notifs = db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(req.user.id);
   res.json(notifs);
 });
 
-// Orders
+// ===== ORDERS =====
 app.post('/api/orders', (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'غير مسجل الدخول' });
   const { product_id, quantity } = req.body;
@@ -182,7 +182,7 @@ app.post('/api/orders', (req, res) => {
   res.json({ success: true });
 });
 
-// Wallet request
+// ===== WALLET REQUEST =====
 app.post('/api/wallet/request', upload.single('receipt'), (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'غير مسجل الدخول' });
   const { method, amount } = req.body;
@@ -192,12 +192,13 @@ app.post('/api/wallet/request', upload.single('receipt'), (req, res) => {
   res.json({ success: true });
 });
 
-// ===== Admin APIs =====
+// ===== ADMIN MIDDLEWARE =====
 const isOwner = (req, res, next) => {
-  if (!req.user || !req.user.is_owner) return res.status(403).json({ error: 'غير مصرح' });
+  if (!req.user || !req.user.is_owner) return res.status(403).json({ error: 'غير مصرح - هذه الصفحة خاصة بالمالك' });
   next();
 };
 
+// ===== ADMIN APIs =====
 app.post('/api/admin/wallet/charge', isOwner, (req, res) => {
   const { user_id, amount } = req.body;
   const stmt = db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?');
@@ -223,18 +224,32 @@ app.post('/api/admin/wallet-requests/:id/approve', isOwner, (req, res) => {
   
   db.prepare('UPDATE wallet_requests SET status = "approved" WHERE id = ?').run(id);
   db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(reqData.amount, reqData.user_id);
+  
+  // إضافة إشعار للمستخدم
+  db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(
+    reqData.user_id,
+    `تم تنفيذ طلب شحن الرصيد بمبلغ ${reqData.amount}$ عبر ${reqData.method}`
+  );
   res.json({ success: true });
 });
 
 app.post('/api/admin/wallet-requests/:id/cancel', isOwner, (req, res) => {
   const id = req.params.id;
   const { reason } = req.body;
+  const reqData = db.prepare('SELECT * FROM wallet_requests WHERE id = ?').get(id);
   db.prepare('UPDATE wallet_requests SET status = "cancelled", cancel_reason = ? WHERE id = ?').run(reason, id);
+  
+  if (reqData) {
+    db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(
+      reqData.user_id,
+      `تم إلغاء طلب شحن الرصيد: ${reason || 'بدون سبب'}`
+    );
+  }
   res.json({ success: true });
 });
 
 app.post('/api/admin/wallet/reset-all', isOwner, (req, res) => {
-  db.prepare('UPDATE users SET balance = 0').run();
+  db.prepare('UPDATE users SET balance = 0 WHERE is_owner = 0').run();
   res.json({ success: true });
 });
 
@@ -263,7 +278,8 @@ app.post('/api/admin/products', isOwner, (req, res) => {
 
 app.get('/api/admin/orders', isOwner, (req, res) => {
   const orders = db.prepare(`
-    SELECT o.*, u.name as user_name, u.email as user_email, p.name as product_name, p.description as product_description, p.price
+    SELECT o.*, u.name as user_name, u.email as user_email, 
+           p.name as product_name, p.description as product_description, p.price
     FROM orders o 
     JOIN users u ON o.user_id = u.id 
     JOIN products p ON o.product_id = p.id 
@@ -275,18 +291,56 @@ app.get('/api/admin/orders', isOwner, (req, res) => {
 
 app.post('/api/admin/orders/:id/approve', isOwner, (req, res) => {
   const id = req.params.id;
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!order) return res.status(404).json({ error: 'الطلب غير موجود' });
+  
   db.prepare('UPDATE orders SET status = "approved" WHERE id = ?').run(id);
+  db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(order.price * order.quantity, order.user_id);
+  
+  db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(
+    order.user_id,
+    `تم تنفيذ طلب شراء ${order.quantity}x ${order.product_name}`
+  );
   res.json({ success: true });
 });
 
 app.post('/api/admin/orders/:id/cancel', isOwner, (req, res) => {
   const id = req.params.id;
   const { reason } = req.body;
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   db.prepare('UPDATE orders SET status = "cancelled", cancel_reason = ? WHERE id = ?').run(reason, id);
+  
+  if (order) {
+    db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(
+      order.user_id,
+      `تم إلغاء طلب الشراء: ${reason || 'بدون سبب'}`
+    );
+  }
   res.json({ success: true });
 });
 
-// Start server
+// ===== DELETE APIs =====
+app.delete('/api/admin/custom-buttons/:id', isOwner, (req, res) => {
+  db.prepare('DELETE FROM custom_buttons WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/sections/:id', isOwner, (req, res) => {
+  db.prepare('DELETE FROM sections WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/products/:id', isOwner, (req, res) => {
+  db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ===== SERVE HTML =====
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ===== START SERVER =====
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-}); 
+  console.log(`🚀 Server running on port ${PORT}`);
+});
