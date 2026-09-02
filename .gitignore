@@ -1,0 +1,8 @@
+node_modules/
+.env
+store.db
+store.db-journal
+store.db-wal
+store.db-shm
+uploads/*
+!uploads/.gitkeep
