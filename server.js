@@ -57,6 +57,7 @@ app.post('/api/auth/owner-login', (req, res) => {
   if (!owner) {
     const info = db.prepare(
       'INSERT INTO users (provider, name, email, is_owner) VALUES (?, ?, ?, 1)'
+      
     ).run('owner', 'Owner', email);
     owner = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   }
