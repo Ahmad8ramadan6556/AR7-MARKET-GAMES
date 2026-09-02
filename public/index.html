@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>متجر شحن الألعاب</title>
+<style>
+  :root{
+    --bg:#0f1420; --card:#161d2e; --accent:#5b8cff; --accent2:#22c55e;
+    --danger:#ef4444; --text:#e7ebf3; --muted:#8b93a7; --radius:14px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',Tahoma,sans-serif;}
+  body{background:var(--bg); color:var(--text); min-height:100vh; padding-bottom:70px;}
+  .hidden{display:none !important;}
+  button{cursor:pointer; border:none; border-radius:10px; font-family:inherit;}
+  input,textarea{border-radius:10px; border:1px solid #2a3350; background:#0e1424; color:var(--text); padding:10px; width:100%; margin:6px 0;}
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--card); position:sticky; top:0; z-index:10;}
+  .topbar h1{font-size:18px;}
+  .icon-btn{background:#20293f; color:var(--text); padding:8px 12px; border-radius:10px; font-size:14px; position:relative;}
+  .badge{position:absolute; top:-6px; left:-6px; background:var(--danger); border-radius:50%; width:18px; height:18px; font-size:11px; display:flex; align-items:center; justify-content:center;}
+
+  .bottom-nav{position:fixed; bottom:0; left:0; right:0; display:flex; justify-content:space-around; background:var(--card); padding:10px 0; border-top:1px solid #232c44; z-index:10;}
+  .nav-btn{background:transparent; color:var(--muted); display:flex; flex-direction:column; align-items:center; font-size:11px; gap:4px;}
+  .nav-btn.active{color:var(--accent);}
+  .nav-btn .emoji{font-size:20px;}
+
+  .container{padding:16px;}
+  .card{background:var(--card); border-radius:var(--radius); padding:14px; margin-bottom:12px;}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .product-card img, .section-card img{width:100%; height:90px; object-fit:cover; border-radius:10px; background:#20293f;}
+  .price{color:var(--accent2); font-weight:bold;}
+  .btn-primary{background:var(--accent); color:#fff; padding:10px; width:100%; font-weight:bold; margin-top:8px;}
+  .btn-danger{background:var(--danger); color:#fff; padding:10px; width:48%;}
+  .btn-success{background:var(--accent2); color:#fff; padding:10px; width:48%;}
+  .btn-secondary{background:#20293f; color:var(--text); padding:10px; width:100%; margin-top:6px;}
+  .row-between{display:flex; justify-content:space-between; gap:8px;}
+  .muted{color:var(--muted); font-size:13px;}
+
+  #login-screen{display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:24px; text-align:center;}
+  #login-screen h1{font-size:26px; margin-bottom:8px;}
+  .login-option{background:var(--card); width:100%; max-width:320px; padding:14px; margin:8px 0; border-radius:12px; color:var(--text); font-size:15px; display:flex; align-items:center; justify-content:center; gap:8px;}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; z-index:100;}
+  .modal-overlay.center{align-items:center; justify-content:center;}
+  .modal{background:var(--card); width:100%; max-height:85vh; overflow-y:auto; border-radius:18px 18px 0 0; padding:18px;}
+  .modal-overlay.center .modal{border-radius:16px; max-width:400px;}
+  .modal h2{margin-bottom:10px; font-size:18px;}
+  .close-btn{float:left; background:transparent; color:var(--muted); font-size:20px;}
+
+  .list-item{background:#0e1424; border-radius:10px; padding:10px; margin:8px 0; font-size:13px; line-height:1.7;}
+  .tag{display:inline-block; background:#20293f; padding:2px 8px; border-radius:20px; font-size:11px; margin-bottom:6px;}
+  .admin-menu-item{background:var(--card); padding:14px; border-radius:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; color:var(--text);}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>🎮 متجر شحن الألعاب</h1>
+  <p class="muted" style="margin-bottom:24px;">سجل الدخول للمتابعة</p>
+  <button class="login-option" onclick="location.href='/api/auth/facebook'">📘 الدخول عبر فيسبوك</button>
+  <button class="login-option" onclick="location.href='/api/auth/google'">🔴 الدخول عبر غوغل</button>
+  <button class="login-option" onclick="showOwnerLogin()">🛠️ دخول المالك</button>
+</div>
+
+<div id="app" class="hidden">
+  <div class="topbar">
+    <button class="icon-btn" onclick="openTelegramSupport()">💬 تواصل مع دعم</button>
+    <h1 id="page-title">الرئيسية</h1>
+    <button class="icon-btn" onclick="openModal('notifications-modal'); loadNotifications();">
+      🔔<span id="notif-badge" class="badge hidden">0</span>
+    </button>
+  </div>
+
+  <div class="container" id="page-content"></div>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active" data-page="home" onclick="goPage('home')"><span class="emoji">🏠</span>الرئيسية</button>
+    <button class="nav-btn" data-page="cart" onclick="goPage('cart')"><span class="emoji">🛒</span>سلتي</button>
+    <button class="nav-btn" data-page="profile" onclick="goPage('profile')"><span class="emoji">👤</span>حسابي</button>
+    <button class="nav-btn" data-page="menu" onclick="goPage('menu')"><span class="emoji">☰</span>القائمة</button>
+  </div>
+</div>
+
+<div id="notifications-modal" class="modal-overlay hidden" onclick="closeOnOverlay(event,'notifications-modal')">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('notifications-modal')">✕</button>
+    <h2>الإشعارات</h2>
+    <div id="notifications-list"></div>
+  </div>
+</div>
+
+<div id="owner-login-modal" class="modal-overlay center hidden" onclick="closeOnOverlay(event,'owner-login-modal')">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('owner-login-modal')">✕</button>
+    <h2>دخول المالك</h2>
+    <input id="owner-email" placeholder="البريد الإلكتروني" type="email">
+    <input id="owner-password" placeholder="كلمة المرور" type="password">
+    <button class="btn-primary" onclick="ownerLogin()">دخول</button>
+    <p id="owner-login-error" class="muted" style="color:var(--danger)"></p>
+  </div>
+</div>
+
+<div id="wallet-charge-modal" class="modal-overlay hidden" onclick="closeOnOverlay(event,'wallet-charge-modal')">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('wallet-charge-modal')">✕</button>
+    <h2 id="wallet-method-title"></h2>
+    <div id="wallet-method-desc" class="list-item"></div>
+    <input id="wallet-amount" type="number" placeholder="المبلغ">
+    <label class="muted">صورة إيصال الدفع</label>
+    <input id="wallet-receipt" type="file" accept="image/*">
+    <button class="btn-primary" onclick="submitWalletRequest()">متابعة وإرسال الطلب</button>
+  </div>
+</div>
+
+<div id="generic-modal" class="modal-overlay hidden" onclick="closeOnOverlay(event,'generic-modal')">
+  <div class="modal" id="generic-modal-body"></div>
+</div>
+
+<script>
+let currentUser = null;
+let cart = [];
+let currentPage = 'home';
+
+function openModal(id){ document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+function closeOnOverlay(e,id){ if(e.target.id===id) closeModal(id); }
+function openTelegramSupport(){ window.open('https://t.me/AHMAD21AR7','_blank'); }
+
+async function api(url, opts={}){
+  const res = await fetch(url, { headers: {'Content-Type':'application/json'}, credentials:'include', ...opts });
+  if(!res.ok){ const e = await res.json().catch(()=>({error:'خطأ'})); throw new Error(e.error||'خطأ'); }
+  return res.json();
+}
+
+function showOwnerLogin(){ openModal('owner-login-modal'); }
+async function ownerLogin(){
+  const email = document.getElementById('owner-email').value;
+  const password = document.getElementById('owner-password').value;
+  try{
+    const data = await api('/api/auth/owner-login', {method:'POST', body: JSON.stringify({email,password})});
+    currentUser = data.user;
+    closeModal('owner-login-modal');
+    enterApp();
+  }catch(e){ document.getElementById('owner-login-error').textContent = e.message; }
+}
+
+async function checkSession(){
+  const data = await api('/api/auth/me');
+  if(data.user){ currentUser = data.user; enterApp(); }
+}
+
+function enterApp(){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  goPage(currentUser.is_owner ? 'admin' : 'home');
+}
+
+function goPage(page){
+  currentPage = page;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===page));
+  const titles = {home:'الرئيسية', cart:'سلتي', profile:'حسابي', menu:'القائمة', admin:'لوحة التحكم'};
+  document.getElementById('page-title').textContent = titles[page] || '';
+  if(page==='home') renderHome();
+  else if(page==='cart') renderCart();
+  else if(page==='profile') renderProfile();
+  else if(page==='menu') renderMenu();
+  else if(page==='admin') renderAdminHome();
+}
+
+async function renderHome(){
+  const content = document.getElementById('page-content');
+  content.innerHTML = '<p class="muted">جارِ التحميل...</p>';
+  const [sections, products, buttons] = await Promise.all([
+    api('/api/sections'), api('/api/products'), api('/api/custom-buttons')
+  ]);
+  let html = '';
+  if(buttons.length){
+    html += '<div class="grid">' + buttons.map(b=>`
+      <div class="card section-card">
+        ${b.image?`<img src="${b.image}">`:''}
+        <h3>${b.name}</h3><p class="muted">${b.description||''}</p>
+      </div>`).join('') + '</div>';
+  }
+  html += '<h3 style="margin:12px 0">الأقسام</h3><div class="grid">' + sections.map(s=>`
+    <div class="card section-card">
+      ${s.image?`<img src="${s.image}">`:''}
+      <h3>${s.name}</h3><p class="muted">${s.description||''}</p>
+    </div>`).join('') + '</div>';
+  html += '<h3 style="margin:12px 0">السلع</h3><div class="grid">' + products.map(p=>`
+    <div class="card product-card">
+      <h3>${p.name}</h3>
+      <p class="muted">${p.description||''}</p>
+      <p class="price">${p.price}$</p>
+      <button class="btn-primary" onclick='addToCart(${JSON.stringify(p)})'>أضف للسلة</button>
+    </div>`).join('') + '</div>';
+  content.innerHTML = html || '<p class="muted">لا يوجد محتوى بعد</p>';
+}
+
+function addToCart(product){
+  const existing = cart.find(c=>c.product.id===product.id);
+  if(existing) existing.quantity++;
+  else cart.push({product, quantity:1});
+  alert('تمت الإضافة إلى السلة');
+}
+function renderCart(){
+  const content = document.getElementById('page-content');
+  if(!cart.length){ content.innerHTML = '<p class="muted">السلة فارغة</p>'; return; }
+  content.innerHTML = cart.map((c,i)=>`
+    <div class="card">
+      <div class="row-between"><h3>${c.product.name}</h3><span class="price">${c.product.price}$ × ${c.quantity}</span></div>
+      <button class="btn-primary" onclick="purchaseItem(${i})">شراء</button>
+    </div>`).join('');
+}
+async function purchaseItem(i){
+  const item = cart[i];
+  try{
+    await api('/api/orders', {method:'POST', body: JSON.stringify({product_id:item.product.id, quantity:item.quantity})});
+    alert('تم إرسال طلب الشراء إلى الإدارة، بانتظار التنفيذ.');
+    cart.splice(i,1);
+    renderCart();
+  }catch(e){ alert(e.message); }
+}
+
+async function renderProfile(){
+  const data = await api('/api/profile');
+  document.getElementById('page-content').innerHTML = `
+    <div class="card">
+      <p><b>الاسم:</b> ${data.name||'-'}</p>
+      <p><b>البريد الإلكتروني:</b> ${data.email||'-'}</p>
+      <p><b>الرصيد:</b> <span class="price">${data.balance}$</span></p>
+      <p><b>تاريخ الانضمام:</b> ${data.created_at}</p>
+    </div>`;
+}
+
+function renderMenu(){
+  const items = [
+    {label:'تعديل حساب', fn:'alert(\\'قريباً\\')'},
+    {label:'تغيير كلمة المرور', fn:'alert(\\'قريباً\\')'},
+    {label:'تغيير الاسم', fn:'alert(\\'قريباً\\')'},
+    {label:'تواصل مع دعم', fn:'openTelegramSupport()'},
+    {label:'الرصيد', fn:"goPage('profile')"},
+    {label:'شحن رصيد', fn:'showWalletOptions()'},
+    {label:'تبديل حسابات', fn:'switchAccount()'},
+  ];
+  document.getElementById('page-content').innerHTML = items.map(i=>`
+    <div class="admin-menu-item" onclick="${i.fn}">${i.label} <span>›</span></div>`).join('');
+}
+function switchAccount(){ location.href='/api/auth/google'; }
+
+function showWalletOptions(){
+  document.getElementById('generic-modal-body').innerHTML = `
+    <button class="close-btn" onclick="closeModal('generic-modal')">✕</button>
+    <h2>شحن الرصيد</h2>
+    <button class="login-option" onclick="openWalletMethod('shamcash')">📂 شام كاش</button>
+    <button class="login-option" onclick="openWalletMethod('syriatel')">🔴 سيرياتيل كاش</button>
+    <button class="btn-secondary" onclick="closeModal('generic-modal'); goPage('menu');">رجوع</button>`;
+  openModal('generic-modal');
+}
+
+const walletTexts = {
+  shamcash: {
+    title:'📂 شام كاش',
+    desc:`📝 لتحويل على شام كاش، اتبع خطوات الدفع:<br>
+      1) قم بالانتقال إلى تطبيق شام كاش.<br>
+      2) انسخ كود التحويل إلى حساب المطور، أو انسخ صورة رمز QR.<br>
+      3) بعد إدخال المبلغ، أرسل رقم عملية التحويل وصورة الإيصال.<br>
+      4) سيتم إرسال طلبك إلى المطور وننتظر حتى يتم تنفيذه.`
+  },
+  syriatel: {
+    title:'🔴 سيرياتيل كاش',
+    desc:`📝 اتبع خطوات الدفع:<br>
+      1) ادخل حسابك في سيرياتيل كاش.<br>
+      2) اختر الدفع اليدوي.<br>
+      3) انسخ الكود من الصورة.<br>
+      4) أرسل المبلغ وقم بالتحويل.<br>
+      5) أرسل رقم العملية مع صورة إثبات.`
+  }
+};
+let currentWalletMethod = null;
+function openWalletMethod(method){
+  currentWalletMethod = method;
+  document.getElementById('wallet-method-title').textContent = walletTexts[method].title;
+  document.getElementById('wallet-method-desc').innerHTML = walletTexts[method].desc;
+  closeModal('generic-modal');
+  openModal('wallet-charge-modal');
+}
+async function submitWalletRequest(){
+  const amount = document.getElementById('wallet-amount').value;
+  const file = document.getElementById('wallet-receipt').files[0];
+  if(!amount || !file){ alert('يرجى إدخال المبلغ وإرفاق صورة الإيصال'); return; }
+  const fd = new FormData();
+  fd.append('method', currentWalletMethod);
+  fd.append('amount', amount);
+  fd.append('receipt', file);
+  const res = await fetch('/api/wallet/request', {method:'POST', body: fd, credentials:'include'});
+  if(res.ok){ alert('تم إرسال طلبك، بانتظار الموافقة.'); closeModal('wallet-charge-modal'); }
+  else alert('حدث خطأ');
+}
+
+async function loadNotifications(){
+  const list = await api('/api/notifications');
+  document.getElementById('notifications-list').innerHTML = list.length
+    ? list.map(n=>`<div class="list-item">${n.message}<div class="muted">${n.created_at}</div></div>`).join('')
+    : '<p class="muted">لا توجد إشعارات</p>';
+}
+
+function renderAdminHome(){
+  const items = [
+    {label:'شحن رصيد مستخدم', fn:'adminChargeWallet()'},
+    {label:'تخزين طلبات (شحن رصيد)', fn:'adminWalletRequests()'},
+    {label:'تصفير أرصدة المستخدمين', fn:'adminResetBalances()'},
+    {label:'إضافة زر مخصص', fn:'adminAddButton()'},
+    {label:'إضافة قسم', fn:'adminAddSection()'},
+    {label:'إضافة سلعة', fn:'adminAddProduct()'},
+    {label:'استقبال طلبات الشراء', fn:'adminOrders()'},
+  ];
+  document.getElementById('page-content').innerHTML = items.map(i=>`
+    <div class="admin-menu-item" onclick="${i.fn}">${i.label} <span>›</span></div>`).join('');
+}
+
+function showGeneric(html){
+  document.getElementById('generic-modal-body').innerHTML =
+    '<button class="close-btn" onclick="closeModal(\\'generic-modal\\')">✕</button>' + html;
+  openModal('generic-modal');
+}
+
+function adminChargeWallet(){
+  showGeneric(`
+    <h2>شحن رصيد مستخدم</h2>
+    <input id="charge-user-id" placeholder="رقم تعريف المستخدم (User ID)">
+    <input id="charge-amount" type="number" placeholder="المبلغ">
+    <button class="btn-primary" onclick="submitChargeWallet()">تنفيذ</button>`);
+}
+async function submitChargeWallet(){
+  const user_id = document.getElementById('charge-user-id').value;
+  const amount = document.getElementById('charge-amount').value;
+  await api('/api/admin/wallet/charge', {method:'POST', body: JSON.stringify({user_id, amount})});
+  alert('تم شحن الرصيد'); closeModal('generic-modal');
+}
+
+async function adminWalletRequests(){
+  const list = await api('/api/admin/wallet-requests');
+  showGeneric('<h2>طلبات شحن الرصيد</h2>' + (list.length ? list.map(r=>`
+    <div class="list-item">
+      <span class="tag">${r.method}</span><br>
+      المستخدم: ${r.user_name} (#${r.user_id})<br>
+      الإيميل: ${r.user_email}<br>
+      المبلغ: ${r.amount}$<br>
+      ${r.receipt_image?`<img src="${r.receipt_image}" style="width:100%;border-radius:8px;margin:6px 0">`:''}
+      التاريخ: ${r.created_at} | رقم الطلب: ${r.id}
+      <div class="row-between" style="margin-top:8px">
+        <button class="btn-success" onclick="approveWalletReq(${r.id})">تم تنفيذ</button>
+        <button class="btn-danger" onclick="cancelWalletReq(${r.id})">إلغاء</button>
+      </div>
+    </div>`).join('') : '<p class="muted">لا توجد طلبات</p>'));
+}
+async function approveWalletReq(id){
+  await api(`/api/admin/wallet-requests/${id}/approve`, {method:'POST'});
+  adminWalletRequests();
+}
+async function cancelWalletReq(id){
+  const reason = prompt('سبب الإلغاء:') || '';
+  await api(`/api/admin/wallet-requests/${id}/cancel`, {method:'POST', body: JSON.stringify({reason})});
+  adminWalletRequests();
+}
+
+function adminResetBalances(){
+  showGeneric(`
+    <h2>تصفير أرصدة المستخدمين</h2>
+    <p class="muted">هذا الإجراء سيصفر أرصدة جميع المستخدمين. هل أنت متأكد؟</p>
+    <div class="row-between" style="margin-top:10px">
+      <button class="btn-success" onclick="confirmResetBalances()">تنفيذ</button>
+      <button class="btn-danger" onclick="closeModal('generic-modal')">إلغاء</button>
+    </div>`);
+}
+async function confirmResetBalances(){
+  await api('/api/admin/wallet/reset-all', {method:'POST'});
+  alert('تم تصفير الأرصدة'); closeModal('generic-modal');
+}
+
+function adminAddButton(){
+  showGeneric(`
+    <h2>إضافة زر مخصص</h2>
+    <input id="btn-name" placeholder="اسم الزر">
+    <textarea id="btn-desc" placeholder="الوصف"></textarea>
+    <input id="btn-image" type="file" accept="image/*">
+    <button class="btn-primary" onclick="submitAddButton()">إنشاء</button>`);
+}
+async function submitAddButton(){
+  const fd = new FormData();
+  fd.append('name', document.getElementById('btn-name').value);
+  fd.append('description', document.getElementById('btn-desc').value);
+  const img = document.getElementById('btn-image').files[0];
+  if(img) fd.append('image', img);
+  await fetch('/api/admin/custom-buttons', {method:'POST', body: fd, credentials:'include'});
+  alert('تم إنشاء الزر'); closeModal('generic-modal');
+}
+
+function adminAddSection(){
+  showGeneric(`
+    <h2>إضافة قسم</h2>
+    <input id="sec-name" placeholder="اسم القسم">
+    <textarea id="sec-desc" placeholder="الوصف"></textarea>
+    <input id="sec-image" type="file" accept="image/*">
+    <button class="btn-primary" onclick="submitAddSection()">إنشاء</button>`);
+}
+async function submitAddSection(){
+  const fd = new FormData();
+  fd.append('name', document.getElementById('sec-name').value);
+  fd.append('description', document.getElementById('sec-desc').value);
+  const img = document.getElementById('sec-image').files[0];
+  if(img) fd.append('image', img);
+  await fetch('/api/admin/sections', {method:'POST', body: fd, credentials:'include'});
+  alert('تم إنشاء القسم'); closeModal('generic-modal');
+}
+
+async function adminAddProduct(){
+  const sections = await api('/api/sections');
+  showGeneric(`
+    <h2>إضافة سلعة</h2>
+    <select id="prod-section" style="width:100%;padding:10px;border-radius:10px;background:#0e1424;color:#fff;border:1px solid #2a3350;">
+      ${sections.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+    </select>
+    <input id="prod-name" placeholder="اسم السلعة">
+    <textarea id="prod-desc" placeholder="الوصف"></textarea>
+    <input id="prod-cost" type="number" placeholder="سعر الكلفة">
+    <input id="prod-price" type="number" placeholder="سعر البيع">
+    <input id="prod-qty" type="number" placeholder="الكمية">
+    <button class="btn-primary" onclick="submitAddProduct()">إنشاء</button>`);
+}
+async function submitAddProduct(){
+  const body = {
+    section_id: document.getElementById('prod-section').value,
+    name: document.getElementById('prod-name').value,
+    description: document.getElementById('prod-desc').value,
+    cost_price: document.getElementById('prod-cost').value,
+    price: document.getElementById('prod-price').value,
+    quantity: document.getElementById('prod-qty').value,
+  };
+  await api('/api/admin/products', {method:'POST', body: JSON.stringify(body)});
+  alert('تم إنشاء السلعة'); closeModal('generic-modal');
+}
+
+async function adminOrders(){
+  const list = await api('/api/admin/orders');
+  showGeneric('<h2>طلبات الشراء</h2>' + (list.length ? list.map(o=>`
+    <div class="list-item">
+      المستخدم: ${o.user_name} (#${o.user_id})<br>
+      الإيميل: ${o.user_email}<br>
+      السلعة: ${o.product_name} — ${o.product_description||''}<br>
+      السعر: ${o.price}$ × ${o.quantity}<br>
+      التاريخ: ${o.created_at} | رقم الطلب: ${o.id}
+      <div class="row-between" style="margin-top:8px">
+        <button class="btn-success" onclick="approveOrder(${o.id})">تم تنفيذ</button>
+        <button class="btn-danger" onclick="cancelOrder(${o.id})">إلغاء</button>
+      </div>
+    </div>`).join('') : '<p class="muted">لا توجد طلبات</p>'));
+}
+async function approveOrder(id){
+  try{ await api(`/api/admin/orders/${id}/approve`, {method:'POST'}); adminOrders(); }
+  catch(e){ alert(e.message); }
+}
+async function cancelOrder(id){
+  const reason = prompt('سبب الإلغاء:') || '';
+  await api(`/api/admin/orders/${id}/cancel`, {method:'POST', body: JSON.stringify({reason})});
+  adminOrders();
+}
+
+checkSession();
+</script>
+</body>
+</html>
