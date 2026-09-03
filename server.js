@@ -1,4 +1,3 @@
-cat > /home/claude/game-store-app/server.js << 'ENDOFFILE'
 // server.js - الخادم الرئيسي للموقع
 require(`dotenv`).config();
 const express = require(`express`);
@@ -423,5 +422,3 @@ app.delete(`/api/admin/custom-buttons/:id`, requireOwner, (req, res) => {
 app.listen(PORT, () => {
   console.log(`الخادم يعمل على المنفذ ${PORT}`);
 });
-ENDOFFILE
-node --check /home/claude/game-store-app/server.js && echo "OK: server.js valid"
