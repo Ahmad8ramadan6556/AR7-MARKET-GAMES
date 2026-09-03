@@ -1,7 +1,7 @@
 {
   "name": "game-store-app",
   "version": "1.0.0",
-  "description": "متجر إلكتروني لشحن الألعاب",
+  "description": "متجر إلكتروني لشحن الألعاب - نظام متكامل مع محفظة ولوحة تحكم",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -15,7 +15,6 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-facebook": "^3.0.0",
-    "better-sqlite3": "^11.3.0",
     "multer": "^1.4.5-lts.1",
     "dotenv": "^16.4.5",
     "bcryptjs": "^2.4.3"
